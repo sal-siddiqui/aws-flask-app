@@ -1,8 +1,8 @@
 #!/bin/bash -ex 
 
-wget https://aws-tc-largeobjects.s3-us-west-2.amazonaws.com/DEV-AWS-MO-GCNv2/FlaskApp.zip 
-unzip FlaskApp.zip 
-cd FlaskApp/ 
+yum install -y git
+git clone https://github.com/sal-siddiqui/aws-flask-app.git
+cd aws-flask-app 
 yum -y install python3-pip 
 pip install -r requirements.txt 
 yum -y install stress 
