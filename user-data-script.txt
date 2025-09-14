@@ -1,13 +1,48 @@
-#!/bin/bash -ex 
+#!/bin/bash -ex
 
-yum install -y git
+# Install dependencies
+yum install -y git python3-pip stress amazon-cloudwatch-agent
+
+# Clone your app
 git clone https://github.com/sal-siddiqui/aws-flask-app.git
 cd aws-flask-app 
-yum -y install python3-pip 
+
+# Install Python requirements
 pip install -r requirements.txt 
-yum -y install stress 
-export PHOTOS_BUCKET=${SUB_PHOTOS_BUCKET} 
+
+# Environment variables
+export PHOTOS_BUCKET=${SUB_PHOTOS_BUCKET}
 export AWS_DEFAULT_REGION=us-east-2
-export DYNAMO_MODE=on 
-export FLASK_APP=application.py 
-/usr/local/bin/flask run --host=0.0.0.0 --port=80
+export DYNAMO_MODE=on
+export FLASK_APP=application.py
+
+# Create log directory
+mkdir -p /var/log/flask
+FLASK_LOG=/var/log/flask/flask.log
+
+# Create CloudWatch Agent config
+cat > /opt/aws/amazon-cloudwatch-agent/bin/config.json <<EOF
+{
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "$FLASK_LOG",
+            "log_group_name": "FlaskAppLogs",
+            "log_stream_name": "{instance_id}",
+            "timestamp_format": "%Y-%m-%d %H:%M:%S"
+          }
+        ]
+      }
+    }
+  }
+}
+EOF
+
+# Start CloudWatch Agent
+/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+  -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json -s
+
+# Start Flask app and redirect logs
+nohup /usr/local/bin/flask run --host=0.0.0.0 --port=80 > $FLASK_LOG 2>&1 &
